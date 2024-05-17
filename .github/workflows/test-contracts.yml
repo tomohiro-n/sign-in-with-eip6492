@@ -1,6 +1,9 @@
-name: test
+name: test-contracts
 
-on: workflow_dispatch
+on:
+  push:
+    paths:
+      - 'contracts/**'
 
 env:
   FOUNDRY_PROFILE: ci
@@ -12,6 +15,9 @@ jobs:
 
     name: Foundry project
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./contracts
     steps:
       - uses: actions/checkout@v4
         with:
