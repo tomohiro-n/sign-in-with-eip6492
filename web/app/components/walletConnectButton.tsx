@@ -4,22 +4,23 @@ export default function WalletConnectButton() {
 
   const { sdk, connected, connecting, account } = useSDK()
 
-  const connect = async () => {
-    try {
-      await sdk?.connect()
-    } catch (error) {
-      console.error(error)
-    }
-  }
-
   const disconnect = () => {
     if(sdk) {
       sdk.terminate()
     }
   }
 
+  const connect = async () => {
+    try {
+      disconnect()
+      await sdk?.connect()
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
   const toggleConnect = () => {
-    if(connected) disconnect()
+    if(connected && account) disconnect()
     else connect()
   }
 
@@ -39,7 +40,7 @@ export default function WalletConnectButton() {
         disabled={connecting}
         onClick={toggleConnect}
         className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">
-        { connected ? "Disconnect" : "Connect Wallet" }
+        { (connected && account) ? "Disconnect" : "Connect Wallet" }
       </button>
       <RenderConnected/>
     </div>
