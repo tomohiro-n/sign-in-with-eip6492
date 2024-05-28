@@ -1,16 +1,21 @@
 "use client"
 import { useState } from "react"
-import { ethers } from "ethers"
+import { ethers, id, concat, AbiCoder, MessagePrefix } from "ethers"
 import { MetaMaskProvider } from "@metamask/sdk-react"
 import WalletConnectButton from "./components/walletConnectButton";
+import { validateSigOffchainBytecode } from "./constants";
 
 export default function Home() {
   const [signer, setSigner] = useState<ethers.JsonRpcSigner | undefined>(undefined)
   const [messageToSign, setMessageToSign] = useState("")
   const [signedMessage, setSignedMessage] = useState("")
+  const [deploymentStatus, setDeploymentStatus] = useState("")
+  const [validationResult, setValidationResult] = useState("")
 
   const host =
   typeof window !== "undefined" ? window.location.host : "defaultHost";
+
+  const contractWalletAddress = '0x55bD297bc3922F4278F1B608575d4c405dcEd31e' // TODO dynamically get
   
   const sdkOptions = {
     dappMetadata: {
@@ -30,6 +35,35 @@ export default function Home() {
     setSignedMessage(_signedMessage || "");
   }
 
+  const checkDeploymentStatus = async () => {
+    if (signer) {
+      const code = await signer.provider.getCode(contractWalletAddress);
+      setDeploymentStatus(code !== '0x' ? 'Already Deployed' : 'Not Deployed Yet');
+    }
+  }
+
+  const isValidSignature = async () => {
+    checkDeploymentStatus()
+    const messageWithPrefix = MessagePrefix + messageToSign.length + messageToSign
+    const validationResult = await signer?.provider.call({
+      data: concat([
+        validateSigOffchainBytecode,
+        (new AbiCoder()).encode(['address', 'bytes32', 'bytes'],
+          [
+            contractWalletAddress,
+            id(messageWithPrefix),
+            signedMessage
+          ])
+      ])
+    })
+    console.log(validationResult)
+    if('0x01' === validationResult) {
+      setValidationResult("success!!")
+    } else {
+      setValidationResult("failed...")
+    }
+  }
+
   return (
     <MetaMaskProvider debug={false} sdkOptions={sdkOptions}>
       <main className="flex min-h-screen flex-col items-center justify-start p-24">
@@ -47,6 +81,17 @@ export default function Home() {
             className="bg-blue-500 text-white rounded-full px-4 py-2">
               Sign Message
           </button>
+          <button
+            disabled={signedMessage === ""}
+            onClick={isValidSignature}
+            className="bg-blue-500 text-white rounded-full px-4 py-2">
+              Verify Signature
+          </button>
+          <div className="text-balance">
+            Verification Result:
+            <div className="ml-5">Contract Wallet Deployment Status: {deploymentStatus}</div>
+            <div className="ml-5">Validation Result: {validationResult}</div>
+          </div>
         </div>
       </main>
     </MetaMaskProvider>
