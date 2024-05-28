@@ -1,7 +1,12 @@
+import { useEffect, useCallback } from "react"
+import { ethers } from "ethers"
 import { useSDK } from "@metamask/sdk-react"
 
-export default function WalletConnectButton() {
+interface WalletConnectButtonProps {
+  setSigner: (signer: ethers.JsonRpcSigner | undefined) => void;
+}
 
+export default function WalletConnectButton({ setSigner }: WalletConnectButtonProps) {
   const { sdk, connected, connecting, account } = useSDK()
 
   const disconnect = () => {
@@ -10,10 +15,17 @@ export default function WalletConnectButton() {
     }
   }
 
+  const setSignerInternal =  useCallback(async () => {
+    const provider = new ethers.BrowserProvider(window.ethereum)
+    const _signer = await provider.getSigner();
+    setSigner(_signer)
+  }, [setSigner])
+
   const connect = async () => {
     try {
       disconnect()
       await sdk?.connect()
+      setSignerInternal()
     } catch (error) {
       console.error(error)
     }
@@ -32,7 +44,16 @@ export default function WalletConnectButton() {
         </div>
       )
     }
-  } 
+  }
+
+  useEffect(() => {
+    const setExistingSigner = async () => {
+      if (connected && account) {
+        setSignerInternal()
+      }
+    }
+    setExistingSigner()
+  }, [connected, account, setSignerInternal])
 
   return (
     <div>

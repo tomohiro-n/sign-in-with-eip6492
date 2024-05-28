@@ -1,10 +1,13 @@
 "use client"
 import { useState } from "react"
+import { ethers } from "ethers"
 import { MetaMaskProvider } from "@metamask/sdk-react"
 import WalletConnectButton from "./components/walletConnectButton";
 
 export default function Home() {
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | undefined>(undefined)
   const [messageToSign, setMessageToSign] = useState("")
+  const [signedMessage, setSignedMessage] = useState("")
 
   const host =
   typeof window !== "undefined" ? window.location.host : "defaultHost";
@@ -21,9 +24,10 @@ export default function Home() {
     setMessageToSign(event.target.value);
   };
 
-  const signMessage = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const signMessage = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
-    console.log(messageToSign)
+    const _signedMessage = await signer?.signMessage(messageToSign)
+    setSignedMessage(_signedMessage || "");
   }
 
   return (
@@ -31,11 +35,12 @@ export default function Home() {
       <main className="flex min-h-screen flex-col items-center justify-start p-24">
         <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
           <div className="fixed top-0 right-0 p-4">
-            <WalletConnectButton/>
+            <WalletConnectButton setSigner={setSigner} />
           </div>
         </div>
         <div className="flex w-full flex-grow flex-col justify-center gap-4">
           <textarea id="message-to-sign" placeholder="Message to sign" value={messageToSign} onChange={handleTextareaChange}></textarea>
+          <div className="text-balance">Signed message: {signedMessage}</div>
           <button
             disabled={messageToSign === ""}
             onClick={signMessage}
