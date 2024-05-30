@@ -8,11 +8,24 @@ contract CreateSimpleAccountScript is Script {
 
   SimpleAccountFactory public simpleSccountFactory;
 
+  function isContract(address addr) internal view returns (bool) {
+    uint256 size;
+    assembly {
+        size := extcodesize(addr)
+    }
+    return size > 0;
+}
+
   function setUp() public {
-    uint256 deployerPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
-    vm.startBroadcast(deployerPrivateKey);
-    simpleSccountFactory = new SimpleAccountFactory();
-     vm.stopBroadcast();
+    address simpleSccountFactoryAddress = vm.envAddress("SIMPLE_ACCOUNT_FACTORY_ADDRESS");
+    if(isContract(simpleSccountFactoryAddress)) {
+      simpleSccountFactory = SimpleAccountFactory(simpleSccountFactoryAddress);
+    } else {
+      uint256 deployerPrivateKey = vm.envUint("ADMIN_PRIVATE_KEY");
+      vm.startBroadcast(deployerPrivateKey);
+      simpleSccountFactory = new SimpleAccountFactory();
+      vm.stopBroadcast();
+    }
   }
 
   function run() public {

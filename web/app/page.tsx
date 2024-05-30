@@ -1,9 +1,9 @@
 "use client"
 import { useState } from "react"
-import { ethers, id, concat, AbiCoder, MessagePrefix } from "ethers"
+import { ethers, id, concat, AbiCoder, Interface, MessagePrefix, encodeBytes32String } from "ethers"
 import { MetaMaskProvider } from "@metamask/sdk-react"
 import WalletConnectButton from "./components/walletConnectButton";
-import { validateSigOffchainBytecode } from "./constants";
+import { magicBytesForEIP6492, validateSigOffchainBytecode } from "./constants";
 
 export default function Home() {
   const [signer, setSigner] = useState<ethers.JsonRpcSigner | undefined>(undefined)
@@ -16,7 +16,13 @@ export default function Home() {
   typeof window !== "undefined" ? window.location.host : "defaultHost";
 
   const contractWalletAddress = '0x55bD297bc3922F4278F1B608575d4c405dcEd31e' // TODO dynamically get
-  
+
+  const accountFactoryAddress = '0x5FbDB2315678afecb367f032d93F642f64180aa3' // TODO dynamically set?
+
+  const accountFactoryABI = [
+    "function createAccount(address owner,bytes32 salt)"
+  ]
+
   const sdkOptions = {
     dappMetadata: {
       name: "Sign in with EIP-6492",
@@ -44,15 +50,33 @@ export default function Home() {
 
   const isValidSignature = async () => {
     checkDeploymentStatus()
+    const abiCoder = new AbiCoder()
+    let signatureToVerifyWith
+    // note: "If the contract is deployed but not ready to verify using ERC-1271" pattern in ERC-6492 isn't implemented here as verification using ERC-1271 is always supported with the setup in thire repository.
+    if (deploymentStatus == 'Already Deployed') {
+      signatureToVerifyWith = signedMessage
+    } else {
+      const iface = new Interface(accountFactoryABI)
+      const salt = encodeBytes32String("salt1")
+      const encodedFunctionData = iface.encodeFunctionData("createAccount(address,bytes32)", [signer?.address, salt])
+      const encodedCall = abiCoder.encode(
+        ['address', 'bytes', 'bytes'],
+        [accountFactoryAddress, encodedFunctionData, signedMessage]
+      )
+      signatureToVerifyWith = concat([
+        encodedCall,
+        magicBytesForEIP6492
+      ])
+    }
     const messageWithPrefix = MessagePrefix + messageToSign.length + messageToSign
     const validationResult = await signer?.provider.call({
       data: concat([
         validateSigOffchainBytecode,
-        (new AbiCoder()).encode(['address', 'bytes32', 'bytes'],
+        abiCoder.encode(['address', 'bytes32', 'bytes'],
           [
             contractWalletAddress,
             id(messageWithPrefix),
-            signedMessage
+            signatureToVerifyWith
           ])
       ])
     })
