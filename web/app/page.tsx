@@ -1,91 +1,69 @@
 "use client"
 import { useState } from "react"
-import { ethers, id, concat, AbiCoder, Interface, MessagePrefix, encodeBytes32String } from "ethers"
+import { ethers } from "ethers"
 import { MetaMaskProvider } from "@metamask/sdk-react"
-import WalletConnectButton from "./components/walletConnectButton";
-import { magicBytesForEIP6492, validateSigOffchainBytecode } from "./constants";
+import WalletConnectButton from "./components/walletConnectButton"
+import { isValidSignature } from "./isValidSignature"
 
 export default function Home() {
-  const [signer, setSigner] = useState<ethers.JsonRpcSigner | undefined>(undefined)
+  const [signer, setSigner] = useState<ethers.JsonRpcSigner | undefined>(
+    undefined,
+  )
   const [messageToSign, setMessageToSign] = useState("")
+  const [signMethod, setSignMethod] = useState("metamask")
   const [signedMessage, setSignedMessage] = useState("")
+  const [contractWalletAddress, setContractWalletAddress] = useState("")
   const [deploymentStatus, setDeploymentStatus] = useState("")
   const [validationResult, setValidationResult] = useState("")
 
   const host =
-  typeof window !== "undefined" ? window.location.host : "defaultHost";
-
-  const contractWalletAddress = '0x55bD297bc3922F4278F1B608575d4c405dcEd31e' // TODO dynamically get
-
-  const accountFactoryAddress = '0x5FbDB2315678afecb367f032d93F642f64180aa3' // TODO dynamically set?
-
-  const accountFactoryABI = [
-    "function createAccount(address owner,bytes32 salt)"
-  ]
+    typeof window !== "undefined" ? window.location.host : "defaultHost"
 
   const sdkOptions = {
     dappMetadata: {
       name: "Sign in with EIP-6492",
       url: host,
     },
-    infuraAPIKey: process.env.NEXT_PUBLIC_INFURA_API_KEY
+    infuraAPIKey: process.env.NEXT_PUBLIC_INFURA_API_KEY,
   }
 
-  const handleTextareaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessageToSign(event.target.value);
-  };
+  const handleMessageToSignChange = (
+    event: React.ChangeEvent<HTMLTextAreaElement>,
+  ) => {
+    setMessageToSign(event.target.value)
+  }
+
+  const handleContractWalletAddressChange = (
+    event: React.ChangeEvent<HTMLTextAreaElement>,
+  ) => {
+    setContractWalletAddress(event.target.value)
+  }
+
+  const handleSignMethodChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    setSignMethod(event.target.value)
+  }
+
+  const isSigningEnabled = () => {
+    return messageToSign !== "" && signMethod === "metamask"
+  }
 
   const signMessage = async (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault()
     const _signedMessage = await signer?.signMessage(messageToSign)
-    setSignedMessage(_signedMessage || "");
+    setSignedMessage(_signedMessage || "")
   }
 
-  const checkDeploymentStatus = async () => {
-    if (signer) {
-      const code = await signer.provider.getCode(contractWalletAddress);
-      setDeploymentStatus(code !== '0x' ? 'Already Deployed' : 'Not Deployed Yet');
-    }
-  }
-
-  const isValidSignature = async () => {
-    checkDeploymentStatus()
-    const abiCoder = new AbiCoder()
-    let signatureToVerifyWith
-    // note: "If the contract is deployed but not ready to verify using ERC-1271" pattern in ERC-6492 isn't implemented here as verification using ERC-1271 is always supported with the setup in thire repository.
-    if (deploymentStatus == 'Already Deployed') {
-      signatureToVerifyWith = signedMessage
-    } else {
-      const iface = new Interface(accountFactoryABI)
-      const salt = encodeBytes32String("salt1")
-      const encodedFunctionData = iface.encodeFunctionData("createAccount(address,bytes32)", [signer?.address, salt])
-      const encodedCall = abiCoder.encode(
-        ['address', 'bytes', 'bytes'],
-        [accountFactoryAddress, encodedFunctionData, signedMessage]
-      )
-      signatureToVerifyWith = concat([
-        encodedCall,
-        magicBytesForEIP6492
-      ])
-    }
-    const messageWithPrefix = MessagePrefix + messageToSign.length + messageToSign
-    const validationResult = await signer?.provider.call({
-      data: concat([
-        validateSigOffchainBytecode,
-        abiCoder.encode(['address', 'bytes32', 'bytes'],
-          [
-            contractWalletAddress,
-            id(messageWithPrefix),
-            signatureToVerifyWith
-          ])
-      ])
-    })
-    console.log(validationResult)
-    if('0x01' === validationResult) {
-      setValidationResult("success!!")
-    } else {
-      setValidationResult("failed...")
-    }
+  const handleIsValidSignature = async () => {
+    await isValidSignature(
+      signer,
+      messageToSign,
+      signedMessage,
+      contractWalletAddress,
+      setDeploymentStatus,
+      setValidationResult,
+    )
   }
 
   return (
@@ -97,27 +75,99 @@ export default function Home() {
           </div>
         </div>
         <div className="flex w-full flex-grow flex-col justify-center gap-4">
-          <textarea id="message-to-sign" placeholder="Message to sign" value={messageToSign} onChange={handleTextareaChange}></textarea>
-          <div className="text-balance">Signed message: {signedMessage}</div>
-          <button
-            disabled={messageToSign === ""}
-            onClick={signMessage}
-            className="bg-blue-500 text-white rounded-full px-4 py-2">
-              Sign Message
-          </button>
-          <button
-            disabled={signedMessage === ""}
-            onClick={isValidSignature}
-            className="bg-blue-500 text-white rounded-full px-4 py-2">
+          <div className="mb-8">
+            <div className="text-xl font-bold mb-2">
+              Step 1: Choose how to sign
+            </div>
+            <div>
+              <div className="ml-5 mb-4">
+                <input
+                  type="radio"
+                  name="sign-method"
+                  value="metamask"
+                  checked={signMethod === "metamask"}
+                  onChange={handleSignMethodChange}
+                />{" "}
+                MetaMask(sorry the only option for now!)
+                <br />
+                <input
+                  type="radio"
+                  name="sign-method"
+                  value="bls"
+                  checked={signMethod === "bls"}
+                  onChange={handleSignMethodChange}
+                />{" "}
+                BLS(not supported yet - you cannot sign with this)
+                <br />
+              </div>
+              <div>
+                If you chose MetaMask, please connect your wallet from right top
+                before signing.
+              </div>
+            </div>
+          </div>
+          <div className="mb-8">
+            <div className="text-xl font-bold mb-2">Step 2: Sign a message</div>
+            <div>
+              <textarea
+                className="w-full p-2 border rounded"
+                id="message-to-sign"
+                placeholder="Message to sign"
+                value={messageToSign}
+                onChange={handleMessageToSignChange}
+              ></textarea>
+              <button
+                disabled={!isSigningEnabled()}
+                onClick={signMessage}
+                className={`rounded-full px-4 py-2 mt-2 mb-4 ${
+                  isSigningEnabled()
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-400 cursor-not-allowed"
+                }`}
+              >
+                Sign Message
+              </button>
+              <div className="text-balance">
+                Signed message: {signedMessage}
+              </div>
+            </div>
+          </div>
+          <div className="mb-8">
+            <div className="text-xl font-bold mb-2">
+              Step 3: Specify to which contract wallet you want to verify the
+              signature
+            </div>
+            <textarea
+              className="w-full p-2 border rounded"
+              id="contract-wallet-address"
+              placeholder="Contract wallet address to verify to"
+              value={contractWalletAddress}
+              onChange={handleContractWalletAddressChange}
+            ></textarea>
+          </div>
+          <div className="mb-8">
+            <div className="text-xl font-bold mb-2">
+              Step 4: Verify the signature
+            </div>
+            <button
+              disabled={signedMessage === ""}
+              onClick={handleIsValidSignature}
+              className="bg-blue-500 text-white rounded-full px-4 py-2"
+            >
               Verify Signature
-          </button>
-          <div className="text-balance">
-            Verification Result:
-            <div className="ml-5">Contract Wallet Deployment Status: {deploymentStatus}</div>
-            <div className="ml-5">Validation Result: {validationResult}</div>
+            </button>
+          </div>
+          <div className="mb-8">
+            <div className="text-xl font-bold mb-2">Validation Result</div>
+            <div className="text-balance">
+              <div className="ml-5">
+                Contract Wallet Deployment Status: {deploymentStatus}
+              </div>
+              <div className="ml-5">Validation Result: {validationResult}</div>
+            </div>
           </div>
         </div>
       </main>
     </MetaMaskProvider>
-  );
+  )
 }

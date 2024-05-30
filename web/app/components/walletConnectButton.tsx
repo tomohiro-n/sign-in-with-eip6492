@@ -3,21 +3,23 @@ import { ethers } from "ethers"
 import { useSDK } from "@metamask/sdk-react"
 
 interface WalletConnectButtonProps {
-  setSigner: (signer: ethers.JsonRpcSigner | undefined) => void;
+  setSigner: (signer: ethers.JsonRpcSigner | undefined) => void
 }
 
-export default function WalletConnectButton({ setSigner }: WalletConnectButtonProps) {
+export default function WalletConnectButton({
+  setSigner,
+}: WalletConnectButtonProps) {
   const { sdk, connected, connecting, account } = useSDK()
 
   const disconnect = () => {
-    if(sdk) {
+    if (sdk) {
       sdk.terminate()
     }
   }
 
-  const setSignerInternal =  useCallback(async () => {
+  const setSignerInternal = useCallback(async () => {
     const provider = new ethers.BrowserProvider(window.ethereum)
-    const _signer = await provider.getSigner();
+    const _signer = await provider.getSigner()
     setSigner(_signer)
   }, [setSigner])
 
@@ -32,7 +34,7 @@ export default function WalletConnectButton({ setSigner }: WalletConnectButtonPr
   }
 
   const toggleConnect = () => {
-    if(connected && account) disconnect()
+    if (connected && account) disconnect()
     else connect()
   }
 
@@ -60,10 +62,11 @@ export default function WalletConnectButton({ setSigner }: WalletConnectButtonPr
       <button
         disabled={connecting}
         onClick={toggleConnect}
-        className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">
-        { (connected && account) ? "Disconnect" : "Connect Wallet" }
+        className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full"
+      >
+        {connected && account ? "Disconnect" : "Connect Wallet"}
       </button>
-      <RenderConnected/>
+      <RenderConnected />
     </div>
   )
 }
