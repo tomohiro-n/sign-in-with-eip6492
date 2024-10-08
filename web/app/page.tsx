@@ -88,16 +88,7 @@ export default function Home() {
                   checked={signMethod === "metamask"}
                   onChange={handleSignMethodChange}
                 />{" "}
-                MetaMask(sorry the only option for now!)
-                <br />
-                <input
-                  type="radio"
-                  name="sign-method"
-                  value="bls"
-                  checked={signMethod === "bls"}
-                  onChange={handleSignMethodChange}
-                />{" "}
-                BLS(not supported yet - you cannot sign with this)
+                ECDSA with MetaMask(sorry the only option for now!)
                 <br />
               </div>
               <div>
